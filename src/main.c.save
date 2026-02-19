@@ -1,0 +1,20 @@
+#include <avr/io.h>
+
+
+
+void uart_init(){
+
+
+USCR0B |= ((1<<TXEN0)|(1<<RXEN0));
+
+
+}
+
+
+int main() {
+
+
+
+}
+
+
