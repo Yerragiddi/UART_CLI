@@ -24,6 +24,7 @@ while(1){
 while(!(UCSR0A & (1 << RXC0)));
 c = UDR0;
 
+uart_tx(c);
 
 if(c == '\r' || c == '\n')
 break;
@@ -47,16 +48,27 @@ UDR0 = k;
 void uart_commands(const char *str){
   while(*str){
     uart_tx(*str++);
-   
+
     }
-  
+
   }
 
 
 void compare(void) {
-    if (strcmp(buff, "led") == 0) {
-        PORTB ^= (1 << PB5);
+    if (strcmp(buff, "led on") == 0) {
+        PORTB |= (1 << PB5);
     }
+     if (strcmp(buff, "led off") == 0) {
+        PORTB &= ~(1 << PB5);
+    }
+    if (strcmp(buff, "status") == 0) {
+        if(PINB & (1 << PB5)){
+          uart_commands("led is on right now\r\n");
+          }
+          else
+          uart_commands("led is off right now\r\n");
+    }
+    
 }
 
 
@@ -65,8 +77,10 @@ int main(void) {
     uart_init();
 
 DDRB |= (1 << PB5);
-uart_commands("enter just led to toggle it on or off fucker \r\n");
-
+uart_commands(" AVAIABLE COMMANDS \r\n");
+uart_commands("led on/off  -controlls the led (pin 13)\r\n");
+uart_commands("status      -get the current status of led \r\n");
+uart_commands("help        -lorem ipsum \r\n");
 while (1)
 {
 uart_rx();
