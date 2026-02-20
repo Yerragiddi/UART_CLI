@@ -5,40 +5,36 @@
 
 #include <avr/io.h>
 #include <string.h>
+#include <avr/interrupt.h>
 
 char rx_buffer[BUFF_SIZE];
 volatile int head = 0;
 volatile int tail = 0;
 
 char buff[32];
-int len = 0;
+uint8_t len = 0;
 
 void uart_init(void) {
     UBRR0H = (UBRR_VALUE >> 8);
     UBRR0L = UBRR_VALUE;
-    UCSR0B = (1 << TXEN0) | (1 << RXEN0);
+    UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0) ;
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
-void uart_rx(){
+ISR(USART_RX_vect)
+{
+    char c = UDR0;
 
-if(UCSR0A & (1 << RXC0)){
+    uart_tx(c);  // echo (safe at 9600 baud)
 
-char c = UDR0;
+    uint8_t next = (head + 1) % BUFF_SIZE;
 
-uart_tx(c);
-
-uint8_t next = (head + 1) % BUFF_SIZE;
-
-if(next != tail){
-
-rx_buffer[head] = c;
-head = next;
+    if (next != tail)   // if buffer not full
+    {
+        rx_buffer[head] = c;
+        head = next;
+    }
+    // if full → character is dropped
 }
-
-}
-
-}
-
 int uart_read(char *c){
 
 if(head == tail) return 0;
@@ -82,19 +78,28 @@ void compare(void) {
           else
           uart_commands("led is off right now\r\n");
     }
-    
+
 }
 
 
 
 int main(void) {
     uart_init();
+    sei();
+
+
 
 DDRB |= (1 << PB5);
+
+
+
 uart_commands(" AVAIABLE COMMANDS \r\n");
 uart_commands("led on/off  -controlls the led (pin 13)\r\n");
 uart_commands("status      -get the current status of led \r\n");
 uart_commands("help        -lorem ipsum \r\n");
+
+
+
 while (1)
 {
 uart_rx();
@@ -111,7 +116,7 @@ compare();
 len = 0;
 
 }
-else if(len < 31){
+else if(len < sizeof(buff) - ){
 
 buff[len++] = c;
 
