@@ -1,11 +1,15 @@
 #define F_CPU 16000000UL
 #define BAUD 9600
 #define UBRR_VALUE ((F_CPU/16/BAUD) - 1)
+#define BUFF_SIZE 32
 
 #include <avr/io.h>
 #include <string.h>
 
-char c;
+char rx_buffer[BUFF_SIZE];
+volatile int head = 0;
+volatile int tail = 0;
+
 char buff[32];
 int len = 0;
 
@@ -15,27 +19,37 @@ void uart_init(void) {
     UCSR0B = (1 << TXEN0) | (1 << RXEN0);
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
-
 void uart_rx(){
 
+if(UCSR0A & (1 << RXC0)){
 
-while(1){
-
-while(!(UCSR0A & (1 << RXC0)));
-c = UDR0;
+char c = UDR0;
 
 uart_tx(c);
 
-if(c == '\r' || c == '\n')
-break;
+uint8_t next = (head + 1) % BUFF_SIZE;
 
-if(len < 31)
-buff[len++] = c;
+if(next != tail){
+
+rx_buffer[head] = c;
+head = next;
+}
 
 }
-buff[len] = '\0';
-len = 0;
+
 }
+
+int uart_read(char *c){
+
+if(head == tail) return 0;
+
+*c = rx_buffer[tail];
+tail = (tail + 1) % BUFF_SIZE;
+return 1;
+
+}
+
+
 
 void uart_tx(char k){
 
@@ -84,8 +98,29 @@ uart_commands("help        -lorem ipsum \r\n");
 while (1)
 {
 uart_rx();
-compare();
 
+char c;
+
+while(uart_read(&c)){
+
+if(c == '\r' || c == '\n'){
+
+buff[len] = '\0';
+
+compare();
+len = 0;
+
+}
+else if(len < 31){
+
+buff[len++] = c;
+
+}
+
+
+
+
+}
 }
 
     return 0;
