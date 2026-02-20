@@ -64,6 +64,18 @@ void uart_commands(const char *str)
         uart_tx(*str++);
     }
 }
+#include <util/delay.h>
+
+void blink_led(void)
+{
+    for (uint8_t i = 0; i < 3; i++)
+    {
+        PORTB |= (1 << PB5);
+        _delay_ms(200);
+        PORTB &= ~(1 << PB5);
+        _delay_ms(200);
+    }
+}
 
 void compare(void)
 {
@@ -82,6 +94,10 @@ void compare(void)
             uart_commands("led is off right now\r\n");
         }
     }
+
+   if (strcmp(buff, "blink") == 0) {
+    blink_led();
+   }
 }
 
 int main(void)
@@ -95,7 +111,7 @@ int main(void)
     uart_commands("led on/off  -controlls the led (pin 13)\r\n");
     uart_commands("status      -get the current status of led \r\n");
     uart_commands("help        -lorem ipsum \r\n");
-
+    uart_commands("blink       -led blinks 3 times\r\n");
     while (1)
     {
         char c;
