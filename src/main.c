@@ -7,24 +7,32 @@
 #include <string.h>
 #include <avr/interrupt.h>
 
-char rx_buffer[BUFF_SIZE];
-volatile int head = 0;
-volatile int tail = 0;
+volatile char rx_buffer[BUFF_SIZE];
+volatile uint8_t head = 0;
+volatile uint8_t tail = 0;
 
 char buff[32];
 uint8_t len = 0;
 
+/* Function Prototypes */
+void uart_init(void);
+void uart_tx(char k);
+int uart_read(char *c);
+void uart_commands(const char *str);
+void compare(void);
+
 void uart_init(void) {
     UBRR0H = (UBRR_VALUE >> 8);
     UBRR0L = UBRR_VALUE;
-    UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0) ;
+    UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
+
 ISR(USART_RX_vect)
 {
     char c = UDR0;
 
-    uart_tx(c);  // echo (safe at 9600 baud)
+    uart_tx(c);  // echo
 
     uint8_t next = (head + 1) % BUFF_SIZE;
 
@@ -33,100 +41,79 @@ ISR(USART_RX_vect)
         rx_buffer[head] = c;
         head = next;
     }
-    // if full → character is dropped
-}
-int uart_read(char *c){
-
-if(head == tail) return 0;
-
-*c = rx_buffer[tail];
-tail = (tail + 1) % BUFF_SIZE;
-return 1;
-
 }
 
+int uart_read(char *c)
+{
+    if(head == tail) return 0;
 
-
-void uart_tx(char k){
-
-while(!(UCSR0A & (1 << UDRE0)));
-
-UDR0 = k;
-
+    *c = rx_buffer[tail];
+    tail = (tail + 1) % BUFF_SIZE;
+    return 1;
 }
 
-void uart_commands(const char *str){
-  while(*str){
-    uart_tx(*str++);
+void uart_tx(char k)
+{
+    while(!(UCSR0A & (1 << UDRE0)));
+    UDR0 = k;
+}
 
+void uart_commands(const char *str)
+{
+    while(*str){
+        uart_tx(*str++);
     }
+}
 
-  }
-
-
-void compare(void) {
+void compare(void)
+{
     if (strcmp(buff, "led on") == 0) {
         PORTB |= (1 << PB5);
     }
-     if (strcmp(buff, "led off") == 0) {
+
+    if (strcmp(buff, "led off") == 0) {
         PORTB &= ~(1 << PB5);
     }
+
     if (strcmp(buff, "status") == 0) {
         if(PINB & (1 << PB5)){
-          uart_commands("led is on right now\r\n");
-          }
-          else
-          uart_commands("led is off right now\r\n");
+            uart_commands("led is on right now\r\n");
+        } else {
+            uart_commands("led is off right now\r\n");
+        }
     }
-
 }
 
-
-
-int main(void) {
+int main(void)
+{
     uart_init();
     sei();
 
+    DDRB |= (1 << PB5);
 
+    uart_commands(" AVAIABLE COMMANDS \r\n");
+    uart_commands("led on/off  -controlls the led (pin 13)\r\n");
+    uart_commands("status      -get the current status of led \r\n");
+    uart_commands("help        -lorem ipsum \r\n");
 
-DDRB |= (1 << PB5);
+    while (1)
+    {
+        char c;
 
-
-
-uart_commands(" AVAIABLE COMMANDS \r\n");
-uart_commands("led on/off  -controlls the led (pin 13)\r\n");
-uart_commands("status      -get the current status of led \r\n");
-uart_commands("help        -lorem ipsum \r\n");
-
-
-
-while (1)
-{
-uart_rx();
-
-char c;
-
-while(uart_read(&c)){
-
-if(c == '\r' || c == '\n'){
-
-buff[len] = '\0';
-
-compare();
-len = 0;
-
-}
-else if(len < sizeof(buff) - ){
-
-buff[len++] = c;
-
-}
-
-
-
-
-}
-}
+        while(uart_read(&c))
+        {
+            if(c == '\r' || c == '\n')
+            {
+                buff[len] = '\0';
+                compare();
+                len = 0;
+            }
+            else if(len < sizeof(buff) - 1)
+            {
+                buff[len++] = c;
+            }
+        }
+    }
 
     return 0;
 }
